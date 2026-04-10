@@ -240,18 +240,38 @@ let sortF = 'no', sortD = 'asc';
 // ── Init ──
 window.addEventListener('DOMContentLoaded', loadData);
 
-async function loadData() {
+const BVIDS = ["BV1ALXQBUE9r","BV1VRXDBAEwZ","BV1cX9MBtEvf","BV18KSdB8EHD","BV1RwDeB2ERL","BV1ZXQZBXEgZ","BV11BQqBkEfe","BV1ZpXLBTEiq","BV16nX6B1ETZ","BV1WYXDB7EnP","BV1xWX5BmEZq","BV1EQQUBYEEB","BV1CAAnzQEWd","BV1QRXABoEuu","BV1QrDrBAEfx","BV1xmXKBFEqN","BV1PX9WBCEWV","BV1WEXkBREn9","BV1wJXhBxE6F","BV1pUXVBkEAy","BV1dxXSBAEqn","BV1QNDFB2E9d","BV1nu9JB4ER8","BV1fm9PB5E8N","BV1TXDTBZEvi","BV1oZ9KBLE7G","BV1SkDjBxEqW","BV1aRXqBREGm","BV1ZbDzBYE5x","BV1KcSSB6E5S","BV1zxDjBTEAA","BV1DCXQBbEar","BV1wKXpBAE9h","BV1baQUBjEif","BV1YHXnBVEhQ","BV1HfXKBQEM1","BV1GJXrBKET8","BV1A49TB4EPr","BV16x9NBEE4z","BV13PXkBKESf","BV1s5X6BSEcD","BV1H39gBPEXr","BV1rpXhBpE1o","BV1eSSXBYE94","BV1FgDhByEpM"];
+const LINKS = ["https://b23.tv/BsthnCr","https://b23.tv/7pCLNCp","https://b23.tv/50uGiRB","https://b23.tv/0KyaRIW","https://b23.tv/Xg388SL","https://b23.tv/qLKDCxR","https://www.bilibili.com/video/BV11BQqBkEfe/","https://b23.tv/f9FqvIh","https://b23.tv/6qhYc6l","https://www.bilibili.com/video/BV1WYXDB7EnP/","https://www.bilibili.com/video/BV1xWX5BmEZq/","https://b23.tv/ZSx2vtG","https://www.bilibili.com/video/BV1CAAnzQEWd/","https://b23.tv/gQkegY2","https://b23.tv/4Hvaw25","https://b23.tv/grztX0t","https://b23.tv/wqwqPU9","https://b23.tv/BZ72uQI","https://b23.tv/QeRPFf4","https://b23.tv/3UHn2xt","https://b23.tv/zqShbbK","https://b23.tv/45UsIFT","https://b23.tv/TtMR48o","https://b23.tv/86VFDkd","https://b23.tv/VDB32iH","https://b23.tv/SDkU4Xp","https://b23.tv/1U6YJj8","https://b23.tv/btbvKWa","https://b23.tv/iIYc366","https://b23.tv/broARPm","https://b23.tv/4IP0Jt0","https://b23.tv/4PNJB6A","https://www.bilibili.com/video/BV1wKXpBAE9h/","https://www.bilibili.com/video/BV1baQUBjEif/","https://www.bilibili.com/video/BV1YHXnBVEhQ/","https://b23.tv/pzhPKrh","https://b23.tv/9nSQGyD","https://b23.tv/SAkAs97","https://b23.tv/y3mfCEI","https://b23.tv/hrfDUfn","https://b23.tv/yMhmS43","https://b23.tv/X9P92Ix","https://b23.tv/QwsMsMW","https://b23.tv/kha8b1S","https://b23.tv/UORUK9h"];
+
+async function fetchVideo(bv, lnk, idx) {
   try {
-    const r = await fetch('data.json?t=' + Date.now(), {cache:'no-cache'});
-    if (!r.ok) throw new Error();
-    allData = await r.json();
-    updateTime(new Date(r.headers.get('Last-Modified') || Date.now()));
-    doFilter();
-    toast('已加载 ' + allData.length + ' 条数据', 'ok');
-  } catch {
-    updateTime(new Date());
-    toast('本地无数据，请运行 fetch_data.sh 刷新', '');
+    const resp = await fetch(`https://api.bilibili.com/x/web-interface/view?bvid=${bv}`, {
+      headers:{'User-Agent':'Mozilla/5.0','Referer':'https://www.bilibili.com/'}});
+    const j = await resp.json();
+    const d = j.data||{}, s = d.stat||{};
+    return {no:idx+1, bvid:bv, link:lnk, kol:d.owner?.name||'未知', title:d.title||'未知',
+      view:s.view||0, danmaku:s.danmaku||0, like:s.like||0, coin:s.coin||0,
+      favorite:s.favorite||0, share:s.share||0, reply:s.reply||0};
+  } catch(e) {
+    return {no:idx+1, bvid:bv, link:lnk, kol:'获取失败', title:'数据加载失败',
+      view:0, danmaku:0, like:0, coin:0, favorite:0, share:0, reply:0};
   }
+}
+
+async function loadData() {
+  showOverlay('首次加载，正在从B站获取数据...', '预计 15-20 秒，请稍候');
+  const fresh = [];
+  for (let i = 0; i < BVIDS.length; i++) {
+    updateOverlay(`[${i+1}/${BVIDS.length}] 获取 ${BVIDS[i]}...`);
+    fresh.push(await fetchVideo(BVIDS[i], LINKS[i], i));
+    renderTable();
+    await new Promise(r=>setTimeout(r,300));
+  }
+  allData = fresh;
+  updateTime(new Date());
+  hideOverlay();
+  doFilter();
+  toast('数据加载完成！' + allData.length + ' 条', 'ok');
 }
 
 // ── Refresh ──
@@ -263,24 +283,14 @@ async function manualRefresh() {
   btn.disabled = true;
   icon.textContent = '⏳'; icon.style.animation='spin 1s linear infinite';
   label.textContent = '刷新中...';
-  showOverlay('正在触发数据刷新...', '请在本地终端运行：bash fetch_data.sh');
-
-  const BVIDS = ["BV1ALXQBUE9r","BV1VRXDBAEwZ","BV1cX9MBtEvf","BV18KSdB8EHD","BV1RwDeB2ERL","BV1ZXQZBXEgZ","BV11BQqBkEfe","BV1ZpXLBTEiq","BV16nX6B1ETZ","BV1WYXDB7EnP","BV1xWX5BmEZq","BV1EQQUBYEEB","BV1CAAnzQEWd","BV1QRXABoEuu","BV1QrDrBAEfx","BV1xmXKBFEqN","BV1PX9WBCEWV","BV1WEXkBREn9","BV1wJXhBxE6F","BV1pUXVBkEAy","BV1dxXSBAEqn","BV1QNDFB2E9d","BV1nu9JB4ER8","BV1fm9PB5E8N","BV1TXDTBZEvi","BV1oZ9KBLE7G","BV1SkDjBxEqW","BV1aRXqBREGm","BV1ZbDzBYE5x","BV1KcSSB6E5S","BV1zxDjBTEAA","BV1DCXQBbEar","BV1wKXpBAE9h","BV1baQUBjEif","BV1YHXnBVEhQ","BV1HfXKBQEM1","BV1GJXrBKET8","BV1A49TB4EPr","BV16x9NBEE4z","BV13PXkBKESf","BV1s5X6BSEcD","BV1H39gBPEXr","BV1rpXhBpE1o","BV1eSSXBYE94","BV1FgDhByEpM"];
-  const LINKS = ["https://b23.tv/BsthnCr","https://b23.tv/7pCLNCp","https://b23.tv/50uGiRB","https://b23.tv/0KyaRIW","https://b23.tv/Xg388SL","https://b23.tv/qLKDCxR","https://www.bilibili.com/video/BV11BQqBkEfe/","https://b23.tv/f9FqvIh","https://b23.tv/6qhYc6l","https://www.bilibili.com/video/BV1WYXDB7EnP/","https://www.bilibili.com/video/BV1xWX5BmEZq/","https://b23.tv/ZSx2vtG","https://www.bilibili.com/video/BV1CAAnzQEWd/","https://b23.tv/gQkegY2","https://b23.tv/4Hvaw25","https://b23.tv/grztX0t","https://b23.tv/wqwqPU9","https://b23.tv/BZ72uQI","https://b23.tv/QeRPFf4","https://b23.tv/3UHn2xt","https://b23.tv/zqShbbK","https://b23.tv/45UsIFT","https://b23.tv/TtMR48o","https://b23.tv/86VFDkd","https://b23.tv/VDB32iH","https://b23.tv/SDkU4Xp","https://b23.tv/1U6YJj8","https://b23.tv/btbvKWa","https://b23.tv/iIYc366","https://b23.tv/broARPm","https://b23.tv/4IP0Jt0","https://b23.tv/4PNJB6A","https://www.bilibili.com/video/BV1wKXpBAE9h/","https://www.bilibili.com/video/BV1baQUBjEif/","https://www.bilibili.com/video/BV1YHXnBVEhQ/","https://b23.tv/pzhPKrh","https://b23.tv/9nSQGyD","https://b23.tv/SAkAs97","https://b23.tv/y3mfCEI","https://b23.tv/hrfDUfn","https://b23.tv/yMhmS43","https://b23.tv/X9P92Ix","https://b23.tv/QwsMsMW","https://b23.tv/kha8b1S","https://b23.tv/UORUK9h"];
+  showOverlay('正在从B站获取最新数据...', '预计 15-20 秒，请稍候');
 
   const fresh = [];
   for (let i = 0; i < BVIDS.length; i++) {
-    const bv = BVIDS[i], lnk = LINKS[i];
-    updateOverlay(`[${i+1}/${BVIDS.length}] 正在获取 ${bv}...`);
-    try {
-      const resp = await fetch(`https://api.bilibili.com/x/web-interface/view?bvid=${bv}`, {
-        headers:{'User-Agent':'Mozilla/5.0','Referer':'https://www.bilibili.com/'}});
-      const j = await resp.json();
-      const d = j.data||{}, s = d.stat||{};
-      fresh.push({no:i+1,bvid:bv,link:lnk,kol:d.owner?.name||'未知',title:d.title||'未知',view:s.view||0,danmaku:s.danmaku||0,like:s.like||0,coin:s.coin||0,favorite:s.favorite||0,share:s.share||0,reply:s.reply||0});
-    } catch(e) { fresh.push({no:i+1,bvid:bv,link:lnk,kol:'获取失败',title:'数据加载失败',view:0,danmaku:0,like:0,coin:0,favorite:0,share:0,reply:0}); }
+    updateOverlay(`[${i+1}/${BVIDS.length}] 获取 ${BVIDS[i]}...`);
+    fresh.push(await fetchVideo(BVIDS[i], LINKS[i], i));
     renderTable();
-    await new Promise(r=>setTimeout(r,350));
+    await new Promise(r=>setTimeout(r,300));
   }
 
   allData = fresh;
