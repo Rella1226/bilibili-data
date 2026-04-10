@@ -230,6 +230,11 @@
 <div class="footer">数据来源：B站公开 API · 由 WorkBuddy 自动化定时抓取</div>
 
 <script>
+// ── Overlay & Toast (must be first) ──
+function showOverlay(msg,sub){document.getElementById('overlayMsg').textContent=msg;document.getElementById('overlaySub').textContent=sub;document.getElementById('overlay').classList.add('show');}
+function updateOverlay(msg,sub){if(msg) document.getElementById('overlayMsg').textContent=msg;if(sub) document.getElementById('overlaySub').textContent=sub;}
+function hideOverlay(){document.getElementById('overlay').classList.remove('show');}
+
 // ── State ──
 let allData = [];
 let filtered = [];
