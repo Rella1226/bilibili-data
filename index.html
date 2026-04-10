@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WorkBuddy 达人数据站</title>
+<style>
+  :root {
+    --bg: #f0f2f5;
+    --card: #ffffff;
+    --header: linear-gradient(135deg, #0f2044 0%, #1a3d7c 100%);
+    --blue: #3b82f6;
+    --blue2: #60a5fa;
+    --green: #10b981;
+    --text: #1e293b;
+    --muted: #64748b;
+    --border: #e2e8f0;
+    --shadow: 0 4px 24px rgba(0,0,0,0.07);
+    --radius: 14px;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { font-family: 'PingFang SC','Helvetica Neue',Arial,sans-serif; background:var(--bg); color:var(--text); min-height:100vh; }
+
+  /* Header */
+  .header { background:var(--header); padding:32px 40px 24px; color:white; }
+  .header-inner { max-width:1400px; margin:0 auto; display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:16px; }
+  .header h1 { font-size:26px; font-weight:900; margin-bottom:6px; letter-spacing:-0.5px; }
+  .header .sub { font-size:13px; opacity:0.75; }
+  .header-right { display:flex; flex-direction:column; align-items:flex-end; gap:10px; }
+  .update-info { font-size:12px; opacity:0.8; }
+  .last-update { font-size:11px; color:rgba(255,255,255,0.55); margin-top:2px; }
+
+  .btn-refresh {
+    background:rgba(255,255,255,0.18); border:1px solid rgba(255,255,255,0.3);
+    color:white; padding:9px 22px; border-radius:24px;
+    font-size:13px; font-weight:600; cursor:pointer;
+    display:flex; align-items:center; gap:6px;
+    transition:all 0.2s; backdrop-filter:blur(8px);
+  }
+  .btn-refresh:hover { background:rgba(255,255,255,0.28); }
+  .btn-refresh:disabled { opacity:0.5; cursor:not-allowed; }
+
+  /* Stats Cards */
+  .stats-grid { max-width:1400px; margin:-18px auto 0; padding:0 40px; display:grid; grid-template-columns:repeat(7,1fr); gap:12px; }
+  .stat-card { background:var(--card); border-radius:var(--radius); padding:18px 16px; text-align:center; box-shadow:var(--shadow); position:relative; overflow:hidden; }
+  .stat-card::before { content:''; position:absolute; top:0; left:0; right:0; height:3px; background:var(--blue); }
+  .stat-card.green::before { background:var(--green); }
+  .stat-card.purple::before { background:#8b5cf6; }
+  .stat-card .val { font-size:24px; font-weight:800; color:var(--blue); line-height:1.2; }
+  .stat-card.green .val { color:var(--green); }
+  .stat-card.purple .val { color:#8b5cf6; }
+  .stat-card .lbl { font-size:11px; color:var(--muted); margin-top:4px; }
+
+  /* Main */
+  .main { max-width:1400px; margin:20px auto; padding:0 40px; }
+
+  /* Filter */
+  .filter-row { display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-bottom:14px; }
+  .filter-row input { flex:1; min-width:180px; padding:9px 14px; border:1.5px solid var(--border); border-radius:10px; font-size:13px; outline:none; transition:border-color 0.2s; }
+  .filter-row input:focus { border-color:var(--blue); }
+  .filter-row select { padding:9px 14px; border:1.5px solid var(--border); border-radius:10px; font-size:13px; background:white; cursor:pointer; outline:none; }
+  .filter-row label { font-size:12px; color:var(--muted); display:flex; align-items:center; gap:5px; cursor:pointer; white-space:nowrap; }
+  .filter-row .hint { margin-left:auto; font-size:12px; color:var(--muted); white-space:nowrap; }
+
+  /* Table */
+  .table-wrap { background:var(--card); border-radius:var(--radius); overflow:hidden; box-shadow:var(--shadow); }
+  table { width:100%; border-collapse:collapse; font-size:13px; }
+  thead tr { background:#0f2044; color:white; }
+  th { padding:13px 10px; text-align:center; font-weight:600; font-size:11.5px; white-space:nowrap; border-right:1px solid rgba(255,255,255,0.1); cursor:pointer; user-select:none; transition:background 0.15s; }
+  th:last-child { border-right:none; }
+  th:hover { background:rgba(255,255,255,0.1); }
+  th.sorted { background:rgba(255,255,255,0.18); }
+  th .arr { font-size:9px; margin-left:2px; opacity:0.5; }
+  th.sorted .arr { opacity:1; }
+
+  tbody tr { border-bottom:1px solid var(--border); transition:background 0.12s; }
+  tbody tr:nth-child(even) { background:#f8fbff; }
+  tbody tr:hover { background:#eff6ff; }
+  tbody tr:last-child { border-bottom:none; }
+  td { padding:11px 10px; vertical-align:middle; }
+  td.num { text-align:right; font-variant-numeric:tabular-nums; }
+  td.center { text-align:center; }
+  td.kol { font-weight:700; color:#1d4ed8; white-space:nowrap; font-size:13px; }
+  td.title { max-width:240px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:#475569; font-size:12px; }
+  td.link a { color:var(--blue); text-decoration:none; font-size:11px; }
+  td.link a:hover { text-decoration:underline; }
+  .bv { background:#dbeafe; color:#1e40af; border-radius:4px; padding:2px 8px; font-size:11px; font-weight:700; font-family:'Courier New',monospace; }
+
+  .row-top1 td { background:linear-gradient(90deg,#fffbeb,#fef9c3) !important; }
+  .row-top2 td { background:linear-gradient(90deg,#f8fafc,#f1f5f9) !important; }
+  .row-top3 td { background:linear-gradient(90deg,#fef2f2,#fee2e2) !important; }
+  .rank-badge { display:inline-flex; align-items:center; justify-content:center; width:22px; height:22px; border-radius:50%; font-size:11px; font-weight:800; color:white; }
+  .rank-1 { background:linear-gradient(135deg,#f59e0b,#d97706); }
+  .rank-2 { background:linear-gradient(135deg,#94a3b8,#64748b); }
+  .rank-3 { background:linear-gradient(135deg,#b45309,#92400e); }
+
+  .summary-row { background:#1a3d7c !important; color:white; font-weight:700; }
+  .summary-row td { color:rgba(255,255,255,0.95) !important; }
+
+  /* Pagination */
+  .pager { display:flex; justify-content:space-between; align-items:center; padding:12px 20px; background:#f8fafc; border-top:1px solid var(--border); flex-wrap:wrap; gap:8px; }
+  .pager .info { font-size:12px; color:var(--muted); }
+  .pager .pages { display:flex; gap:4px; }
+  .pager button { padding:5px 12px; border:1px solid var(--border); border-radius:6px; background:white; font-size:12px; cursor:pointer; transition:all 0.15s; }
+  .pager button:hover { background:var(--blue); color:white; border-color:var(--blue); }
+  .pager button.active { background:#0f2044; color:white; border-color:#0f2044; }
+  .pager button:disabled { opacity:0.4; cursor:not-allowed; }
+
+  /* Config hint */
+  .config-hint { background:linear-gradient(135deg,#fff7ed,#fef3c7); border:1px solid #fcd34d; border-radius:var(--radius); padding:16px 20px; margin-top:16px; display:flex; gap:12px; align-items:flex-start; }
+  .config-hint .icon { font-size:22px; flex-shrink:0; }
+  .config-hint .text { flex:1; }
+  .config-hint .title { font-size:13px; font-weight:700; color:#92400e; margin-bottom:4px; }
+  .config-hint .desc { font-size:12px; color:#a16207; line-height:1.6; }
+  .config-hint code { background:rgba(0,0,0,0.08); border-radius:4px; padding:1px 5px; font-size:11px; }
+
+  /* Loading */
+  .overlay { display:none; position:fixed; inset:0; background:rgba(255,255,255,0.88); z-index:200; align-items:center; justify-content:center; flex-direction:column; gap:14px; backdrop-filter:blur(6px); }
+  .overlay.show { display:flex; }
+  .spinner { width:44px; height:44px; border:4px solid #e2e8f0; border-top-color:var(--blue); border-radius:50%; animation:spin 0.8s linear infinite; }
+  @keyframes spin { to{transform:rotate(360deg)} }
+  .overlay p { font-size:14px; color:var(--muted); font-weight:500; }
+  .overlay .sub { font-size:12px; color:#94a3b8; }
+
+  /* Toast */
+  .toast { position:fixed; bottom:28px; right:28px; background:#1e293b; color:white; padding:12px 20px; border-radius:10px; font-size:13px; font-weight:500; box-shadow:0 6px 20px rgba(0,0,0,0.18); z-index:300; opacity:0; transform:translateY(16px); transition:all 0.3s; pointer-events:none; }
+  .toast.show { opacity:1; transform:translateY(0); }
+  .toast.ok { background:#059669; }
+  .toast.err { background:#dc2626; }
+
+  .footer { text-align:center; padding:24px; font-size:11px; color:#94a3b8; }
+
+  @media(max-width:1100px) { .stats-grid { grid-template-columns:repeat(4,1fr); } }
+  @media(max-width:768px) {
+    .header, .stats-grid, .main { padding-left:16px; padding-right:16px; }
+    .stats-grid { grid-template-columns:repeat(2,1fr); margin-top:12px; }
+    td.title { max-width:140px; }
+    th, td { padding:8px 6px; font-size:11px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="overlay" id="overlay">
+  <div class="spinner"></div>
+  <p id="overlayMsg">正在刷新数据...</p>
+  <div class="sub" id="overlaySub"></div>
+</div>
+<div class="toast" id="toast"></div>
+
+<div class="header">
+  <div class="header-inner">
+    <div>
+      <h1>WorkBuddy 达人视频数据站</h1>
+      <div class="sub">B站视频数据监控 · 自动定时更新 · 支持自定义添加达人</div>
+    </div>
+    <div class="header-right">
+      <div>
+        <div class="update-info">📅 最后更新：<span id="lastUpdate">加载中...</span></div>
+        <div class="last-update" id="updateDetail"></div>
+      </div>
+      <button class="btn-refresh" id="btnRefresh" onclick="manualRefresh()">
+        <span id="refreshIcon">🔄</span>
+        <span id="refreshLabel">手动刷新</span>
+      </button>
+    </div>
+  </div>
+</div>
+
+<div class="stats-grid" id="statsGrid">
+  <div class="stat-card purple"><div class="val" id="s-view">-</div><div class="lbl">总播放量</div></div>
+  <div class="stat-card"><div class="val" id="s-danmaku">-</div><div class="lbl">总弹幕</div></div>
+  <div class="stat-card green"><div class="val" id="s-like">-</div><div class="lbl">总点赞</div></div>
+  <div class="stat-card"><div class="val" id="s-coin">-</div><div class="lbl">总投币</div></div>
+  <div class="stat-card"><div class="val" id="s-fav">-</div><div class="lbl">总收藏</div></div>
+  <div class="stat-card"><div class="val" id="s-share">-</div><div class="lbl">总转发</div></div>
+  <div class="stat-card"><div class="val" id="s-reply">-</div><div class="lbl">总评论</div></div>
+</div>
+
+<div class="main">
+  <div class="filter-row">
+    <input type="text" id="searchInput" placeholder="🔍 搜索达人 / 标题 / BV号..." oninput="doFilter()">
+    <select id="sortSelect" onchange="doFilter()">
+      <option value="no-asc">📌 默认顺序</option>
+      <option value="view-desc">▶ 播放量 高→低</option>
+      <option value="view-asc">◀ 播放量 低→高</option>
+      <option value="like-desc">👍 点赞 高→低</option>
+      <option value="coin-desc">🪙 投币 高→低</option>
+      <option value="favorite-desc">⭐ 收藏 高→低</option>
+      <option value="reply-desc">💬 评论 高→低</option>
+    </select>
+    <label><input type="checkbox" id="topOnly" onchange="doFilter()"> 只看 TOP 20</label>
+    <span class="hint" id="resultHint"></span>
+  </div>
+
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th style="width:44px" onclick="sortBy('no')"># <span class="arr" id="arr-no">↕</span></th>
+          <th style="width:108px" onclick="sortBy('kol')">达人 <span class="arr" id="arr-kol">↕</span></th>
+          <th onclick="sortBy('title')">视频标题 <span class="arr" id="arr-title">↕</span></th>
+          <th style="width:80px">链接</th>
+          <th style="width:128px">BV号</th>
+          <th style="width:90px" onclick="sortBy('view')">播放量 <span class="arr" id="arr-view">↕</span></th>
+          <th style="width:60px" onclick="sortBy('danmaku')">弹幕 <span class="arr" id="arr-danmaku">↕</span></th>
+          <th style="width:76px" onclick="sortBy('like')">点赞 <span class="arr" id="arr-like">↕</span></th>
+          <th style="width:62px" onclick="sortBy('coin')">投币 <span class="arr" id="arr-coin">↕</span></th>
+          <th style="width:62px" onclick="sortBy('favorite')">收藏 <span class="arr" id="arr-fav">↕</span></th>
+          <th style="width:62px" onclick="sortBy('share')">转发 <span class="arr" id="arr-share">↕</span></th>
+          <th style="width:62px" onclick="sortBy('reply')">评论 <span class="arr" id="arr-reply">↕</span></th>
+        </tr>
+      </thead>
+      <tbody id="tbody"></tbody>
+    </table>
+    <div class="pager" id="pager"></div>
+  </div>
+
+  <div class="config-hint">
+    <div class="icon">💡</div>
+    <div class="text">
+      <div class="title">如何添加新达人？</div>
+      <div class="desc">
+        编辑同目录下的 <code>config.txt</code> 文件，添加一行：<code>BV号|视频链接</code>，保存后运行 <code>./fetch_data.sh</code> 刷新数据，网站即可自动显示新达人的信息。视频链接支持 b23.tv 短链接或完整的 bilibili.com 地址。
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="footer">数据来源：B站公开 API · 由 WorkBuddy 自动化定时抓取</div>
+
+<script>
+// ── State ──
+let allData = [];
+let filtered = [];
+let page = 1;
+const PAGE = 20;
+let sortF = 'no', sortD = 'asc';
+
+// ── Init ──
+window.addEventListener('DOMContentLoaded', loadData);
+
+async function loadData() {
+  try {
+    const r = await fetch('data.json?t=' + Date.now(), {cache:'no-cache'});
+    if (!r.ok) throw new Error();
+    allData = await r.json();
+    updateTime(new Date(r.headers.get('Last-Modified') || Date.now()));
+    doFilter();
+    toast('已加载 ' + allData.length + ' 条数据', 'ok');
+  } catch {
+    updateTime(new Date());
+    toast('本地无数据，请运行 fetch_data.sh 刷新', '');
+  }
+}
+
+// ── Refresh ──
+async function manualRefresh() {
+  const btn = document.getElementById('btnRefresh');
+  const icon = document.getElementById('refreshIcon');
+  const label = document.getElementById('refreshLabel');
+  if (btn.disabled) return;
+  btn.disabled = true;
+  icon.textContent = '⏳'; icon.style.animation='spin 1s linear infinite';
+  label.textContent = '刷新中...';
+  showOverlay('正在触发数据刷新...', '请在本地终端运行：bash fetch_data.sh');
+
+  const BVIDS = ["BV1ALXQBUE9r","BV1VRXDBAEwZ","BV1cX9MBtEvf","BV18KSdB8EHD","BV1RwDeB2ERL","BV1ZXQZBXEgZ","BV11BQqBkEfe","BV1ZpXLBTEiq","BV16nX6B1ETZ","BV1WYXDB7EnP","BV1xWX5BmEZq","BV1EQQUBYEEB","BV1CAAnzQEWd","BV1QRXABoEuu","BV1QrDrBAEfx","BV1xmXKBFEqN","BV1PX9WBCEWV","BV1WEXkBREn9","BV1wJXhBxE6F","BV1pUXVBkEAy","BV1dxXSBAEqn","BV1QNDFB2E9d","BV1nu9JB4ER8","BV1fm9PB5E8N","BV1TXDTBZEvi","BV1oZ9KBLE7G","BV1SkDjBxEqW","BV1aRXqBREGm","BV1ZbDzBYE5x","BV1KcSSB6E5S","BV1zxDjBTEAA","BV1DCXQBbEar","BV1wKXpBAE9h","BV1baQUBjEif","BV1YHXnBVEhQ","BV1HfXKBQEM1","BV1GJXrBKET8","BV1A49TB4EPr","BV16x9NBEE4z","BV13PXkBKESf","BV1s5X6BSEcD","BV1H39gBPEXr","BV1rpXhBpE1o","BV1eSSXBYE94","BV1FgDhByEpM"];
+  const LINKS = ["https://b23.tv/BsthnCr","https://b23.tv/7pCLNCp","https://b23.tv/50uGiRB","https://b23.tv/0KyaRIW","https://b23.tv/Xg388SL","https://b23.tv/qLKDCxR","https://www.bilibili.com/video/BV11BQqBkEfe/","https://b23.tv/f9FqvIh","https://b23.tv/6qhYc6l","https://www.bilibili.com/video/BV1WYXDB7EnP/","https://www.bilibili.com/video/BV1xWX5BmEZq/","https://b23.tv/ZSx2vtG","https://www.bilibili.com/video/BV1CAAnzQEWd/","https://b23.tv/gQkegY2","https://b23.tv/4Hvaw25","https://b23.tv/grztX0t","https://b23.tv/wqwqPU9","https://b23.tv/BZ72uQI","https://b23.tv/QeRPFf4","https://b23.tv/3UHn2xt","https://b23.tv/zqShbbK","https://b23.tv/45UsIFT","https://b23.tv/TtMR48o","https://b23.tv/86VFDkd","https://b23.tv/VDB32iH","https://b23.tv/SDkU4Xp","https://b23.tv/1U6YJj8","https://b23.tv/btbvKWa","https://b23.tv/iIYc366","https://b23.tv/broARPm","https://b23.tv/4IP0Jt0","https://b23.tv/4PNJB6A","https://www.bilibili.com/video/BV1wKXpBAE9h/","https://www.bilibili.com/video/BV1baQUBjEif/","https://www.bilibili.com/video/BV1YHXnBVEhQ/","https://b23.tv/pzhPKrh","https://b23.tv/9nSQGyD","https://b23.tv/SAkAs97","https://b23.tv/y3mfCEI","https://b23.tv/hrfDUfn","https://b23.tv/yMhmS43","https://b23.tv/X9P92Ix","https://b23.tv/QwsMsMW","https://b23.tv/kha8b1S","https://b23.tv/UORUK9h"];
+
+  const fresh = [];
+  for (let i = 0; i < BVIDS.length; i++) {
+    const bv = BVIDS[i], lnk = LINKS[i];
+    updateOverlay(`[${i+1}/${BVIDS.length}] 正在获取 ${bv}...`);
+    try {
+      const resp = await fetch(`https://api.bilibili.com/x/web-interface/view?bvid=${bv}`, {
+        headers:{'User-Agent':'Mozilla/5.0','Referer':'https://www.bilibili.com/'}});
+      const j = await resp.json();
+      const d = j.data||{}, s = d.stat||{};
+      fresh.push({no:i+1,bvid:bv,link:lnk,kol:d.owner?.name||'未知',title:d.title||'未知',view:s.view||0,danmaku:s.danmaku||0,like:s.like||0,coin:s.coin||0,favorite:s.favorite||0,share:s.share||0,reply:s.reply||0});
+    } catch(e) { fresh.push({no:i+1,bvid:bv,link:lnk,kol:'获取失败',title:'数据加载失败',view:0,danmaku:0,like:0,coin:0,favorite:0,share:0,reply:0}); }
+    renderTable();
+    await new Promise(r=>setTimeout(r,350));
+  }
+
+  allData = fresh;
+  updateTime(new Date());
+  hideOverlay();
+  btn.disabled = false;
+  icon.textContent = '✅'; icon.style.animation='';
+  label.textContent = '刷新完成';
+  setTimeout(()=>{ icon.textContent='🔄'; label.textContent='手动刷新'; },2500);
+  doFilter();
+  toast('实时刷新成功！' + allData.length + ' 条数据已更新', 'ok');
+}
+
+// ── Filter & Sort ──
+function doFilter() {
+  const q = document.getElementById('searchInput').value.trim().toLowerCase();
+  const topOnly = document.getElementById('topOnly').checked;
+  const [f,d] = document.getElementById('sortSelect').value.split('-');
+  sortF=f; sortD=d;
+
+  filtered = allData.filter(v => {
+    if (topOnly && v.no > 20) return false;
+    if (!q) return true;
+    return (v.kol+q+v.title+v.bvid).toLowerCase().includes(q);
+  });
+
+  filtered.sort((a,b)=>{
+    let va=a[sortF],vb=b[sortF];
+    if (typeof va==='string') return d==='asc'?va.localeCompare(vb):vb.localeCompare(va);
+    return d==='asc'?va-vb:vb-va;
+  });
+
+  page=1;
+  renderTable();
+  document.getElementById('resultHint').textContent = `共 ${filtered.length} 条`;
+}
+
+function sortBy(f) {
+  const sel=document.getElementById('sortSelect');
+  if (sortF===f) { sel.value=f+'-'+(sortD==='asc'?'desc':'asc'); }
+  else { sel.value=f+'-desc'; }
+  doFilter();
+}
+
+// ── Render ──
+function renderTable() {
+  const tbody=document.getElementById('tbody');
+  const start=(page-1)*PAGE;
+  const pageData=filtered.slice(start,start+PAGE);
+  const totals=filtered.reduce((a,v)=>({view:a.view+(v.view||0),danmaku:a.danmaku+(v.danmaku||0),like:a.like+(v.like||0),coin:a.coin+(v.coin||0),favorite:a.favorite+(v.favorite||0),share:a.share+(v.share||0),reply:a.reply+(v.reply||0)}),{view:0,danmaku:0,like:0,coin:0,favorite:0,share:0,reply:0});
+
+  if (!pageData.length) { tbody.innerHTML='<tr><td colspan="12" style="text-align:center;padding:48px;color:#94a3b8">暂无数据</td></tr>'; document.getElementById('pager').innerHTML=''; return; }
+
+  let h='';
+  pageData.forEach((v,i)=>{
+    const ri=start+i;
+    const cls=ri===0?'row-top1':ri===1?'row-top2':ri===2?'row-top3':'';
+    const rank=ri<3?`<span class="rank-badge rank-${ri+1}">${ri+1}</span>`:`<span style="color:#94a3b8;font-size:11px">${v.no}</span>`;
+    h+=`<tr class="${cls}">
+      <td class="center">${rank}</td>
+      <td class="kol">${h_(v.kol)}</td>
+      <td class="title" title="${h_(v.title)}">${h_(v.title)}</td>
+      <td class="link"><a href="${h_(v.link)}" target="_blank">查看 →</a></td>
+      <td class="center"><span class="bv">${v.bvid}</span></td>
+      <td class="num">${fmt(v.view)}</td>
+      <td class="num">${fmt(v.danmaku)}</td>
+      <td class="num">${fmt(v.like)}</td>
+      <td class="num">${fmt(v.coin)}</td>
+      <td class="num">${fmt(v.favorite)}</td>
+      <td class="num">${fmt(v.share)}</td>
+      <td class="num">${fmt(v.reply)}</td>
+    </tr>`;
+  });
+
+  h+=`<tr class="summary-row">
+    <td colspan="5" style="text-align:center">B站合计（${filtered.length}条）</td>
+    <td class="num">${fmt(totals.view)}</td><td class="num">${fmt(totals.danmaku)}</td>
+    <td class="num">${fmt(totals.like)}</td><td class="num">${fmt(totals.coin)}</td>
+    <td class="num">${fmt(totals.favorite)}</td><td class="num">${fmt(totals.share)}</td>
+    <td class="num">${fmt(totals.reply)}</td>
+  </tr>`;
+
+  tbody.innerHTML=h;
+  renderPager();
+  updateStats(totals);
+  updateSortArrows();
+}
+
+function renderPager() {
+  const pg=document.getElementById('pager');
+  const tp=Math.ceil(filtered.length/PAGE);
+  if (tp<=1) { pg.innerHTML=''; return; }
+  let h=`<span class="info">第 ${page}/${tp} 页 · ${filtered.length} 条</span><div class="pages">`;
+  h+=`<button ${page<=1?'disabled':''} onclick="go(${page-1})">‹</button>`;
+  for (let p=Math.max(1,page-2);p<=Math.min(tp,page+2);p++) h+=`<button class="${p===page?'active':''}" onclick="go(${p})">${p}</button>`;
+  h+=`<button ${page>=tp?'disabled':''} onclick="go(${page+1})">›</button>`;
+  h+='</div>';
+  pg.innerHTML=h;
+}
+
+function go(p){page=p;renderTable();window.scrollTo({top:0,behavior:'smooth'});}
+
+function updateStats(t) {
+  document.getElementById('s-view').textContent=fmtK(t.view);
+  document.getElementById('s-danmaku').textContent=fmtK(t.danmaku);
+  document.getElementById('s-like').textContent=fmtK(t.like);
+  document.getElementById('s-coin').textContent=fmtK(t.coin);
+  document.getElementById('s-fav').textContent=fmtK(t.favorite);
+  document.getElementById('s-share').textContent=fmtK(t.share);
+  document.getElementById('s-reply').textContent=fmtK(t.reply);
+}
+
+function updateSortArrows() {
+  ['no','kol','title','view','danmaku','like','coin','fav','share','reply'].forEach(f=>{
+    const el=document.getElementById('arr-'+f);
+    if (!el) return;
+    if (f===sortF) { el.textContent=sortD==='asc'?'↑':'↓'; el.parentElement.classList.add('sorted'); }
+    else { el.textContent='↕'; el.parentElement.classList.remove('sorted'); }
+  });
+}
+
+// ── Utils ──
+function fmt(n){if(typeof n!=='number')return'—';return n.toLocaleString('zh-CN');}
+function fmtK(n){if(typeof n!=='number')return'—';if(n>=100000000)return(n/100000000).toFixed(1)+'亿';if(n>=10000)return(n/10000).toFixed(1)+'万';return n.toLocaleString('zh-CN');}
+function h_(s){if(!s)return'';return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+function updateTime(d){document.getElementById('lastUpdate').textContent=d.toLocaleString('zh-CN',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'});document.getElementById('updateDetail').textContent=d.toLocaleString('zh-CN',{year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',second:'2-digit'});}
+function toast(msg,type=''){const t=document.getElementById('toast');t.textContent=msg;t.className='toast show '+(type?'ok':'err');setTimeout(()=>t.classList.remove('show'),3000);}
+function showOverlay(msg,sub){document.getElementById('overlayMsg').textContent=msg;document.getElementById('overlaySub').textContent=sub;document.getElementById('overlay').classList.add('show');}
+function hideOverlay(){document.getElementById('overlay').classList.remove('show');}
+</script>
+</body>
+</html>
